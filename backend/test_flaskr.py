@@ -43,12 +43,12 @@ class TriviaTestCase(unittest.TestCase):
         self.assertTrue(len(data["categories"]))
         self.assertTrue(len(data["questions"]))
 
-    def test_get_page_bad_req(self):
-        res = self.client().get('/questions?page=1000')
+    def test_get_page_not_found(self):
+        res = self.client().get('/questions?page=1000', json={"rating": 1})
         data = json.loads(res.data)
-        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.status_code, 404)
         self.assertEqual(data['success'], False)
-        self.assertEqual(data['message'], 'Bad request')
+        self.assertEqual(data['message'], 'Page not found')
 
     def test_get_categories(self):
         res = self.client().get('/categories')
@@ -63,26 +63,24 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 405)
         self.assertEqual(data["success"], False)
 
-    def test_delete_question(self):
-        question = Question(question='new question', answer='new answer', difficulty=1, category=1)
-        question.insert()
-        question_id = question.id
-        # res = self.client().delete('/questions/1')
-        res = self.client().delete(f'/questions/{question_id}')
-        data = json.loads(res.data)
 
-        question = Question.query.filter(
-            Question.id == question.id).one_or_none()
-        # data = json.loads(res.data)
+    def test_delete_question(self):
+        res = self.client().delete("/questions/1")
+        data = json.loads(res.data)
+        question = Question.query.filter(Question.id == 1).one_or_none()
+
         self.assertEqual(res.status_code, 200)
         self.assertEqual(data["success"], True)
+        self.assertEqual(data["deleted"], 1)
+        self.assertEqual(question, None)
+
 
     def test_delete_question_not_found(self):
-        res = self.client().delete('/questions/1')
+        res = self.client().delete('/questions/1000')
         data = json.loads(res.data)
-        self.assertEqual(res.status_code, 404)
+        self.assertEqual(res.status_code, 422)
         self.assertEqual(data["success"], False)
-        self.assertEqual(data["message"], "Page not found")
+        self.assertEqual(data["message"], "Unprocessable recource")
 
     def test_add_question(self):
         newQuestion = {
@@ -130,19 +128,20 @@ class TriviaTestCase(unittest.TestCase):
 
     def test_quiz(self):
         quiz = {
-            'previous_questions': [13],
+            'previous_questions': [6],
             'quiz_category': {
-                'type': 'Entertainment',
-                'id': 3
+                'type': 'Art',
+                'id': 2
             }
         }
+
         res = self.client().post('/quizzes', json=quiz)
         data = json.loads(res.data)
         self.assertEqual(res.status_code, 200)
         self.assertEqual(data['success'], True)
-        self.assertEqual(data['question']['category'], 3)
+        self.assertEqual(data['question']['category'], 2)
 
-    def test_quiz_not_found_category(self):
+    def test_quiz_not_found(self):
         quiz = {
             'previous_questions': [6],
             'quiz_category': {
