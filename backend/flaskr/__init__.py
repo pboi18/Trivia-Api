@@ -47,11 +47,10 @@ def create_app(test_config=None):
     """
     @app.route("/categories")
     def get_categories():
-        # get all categories
+
         categories = Category.query.all()
-        # categories dict for holding the retrives categories
         categoriesDict = {}
-        # adding all categories to the dict
+
         for category in categories:
             categoriesDict[category.id] = category.type
 
@@ -84,9 +83,7 @@ def create_app(test_config=None):
 
             # get all categories
             categories = Category.query.all()
-            categoriesDict = {}
-            for category in categories:
-                categoriesDict[category.id] = category.type
+            categoriesDict = {category.id: category.type for category in categories}
 
             return jsonify({
                 'success': True,
@@ -139,10 +136,8 @@ def create_app(test_config=None):
     """
     @app.route("/questions", methods=['POST'])
     def add_question():
-        # get the body from requist
         body = request.get_json()
 
-        # get new data, none if not enterd
         new_question = body.get('question', None)
         new_answer = body.get('answer', None)
         new_category = body.get('category', None)
@@ -204,21 +199,21 @@ def create_app(test_config=None):
     category to be shown.
     """
     @app.route("/categories/<int:id>/questions")
-    def questions_in_category(id):
-        # retrive the category by given id
+    def questions_by_category(id):
+        # get the category by given id
         category = Category.query.filter_by(id=id).one_or_none()
         if category:
-            # retrive all questions in a category
-            questionsInCat = Question.query.filter_by(category=str(id)).all()
-            current_questions = paginate_questions(request, questionsInCat)
+            # get all questions in a category
+            selection = Question.query.filter_by(category=str(id)).all()
+            current_questions = paginate_questions(request, selection)
 
             return jsonify({
                 'success': True,
                 'questions': current_questions,
-                'total_questions': len(questionsInCat),
+                'total_questions': len(selection),
                 'current_category': category.type
             })
-        # if category not founs
+        # if category not found
         else:
             abort(404)
 
@@ -240,32 +235,25 @@ def create_app(test_config=None):
         previous_questions = body.get('previous_questions')
 
         try:
-            if (category['id'] == 0):
-                questions_query = Question.query.all()
+            if(category['id']):
+                questions = Question.query.filter_by(category=category['id']).filter(Question.id.notin_(previous_questions)).all()
             else:
-                questions_query = Question.query.filter_by(category=category['id']).all()
-
-            randomIndex = random.randint(0, len(questions_query)-1)
-            next_question = questions_query[randomIndex]
-
-            while next_question.id not in previous_questions:
-                next_question = questions_query[randomIndex]
+                questions = Question.query.filter(Question.id.notin_(previous_questions)).all()
+            
+            if len(questions) > 0:
+                next_question = questions[random.randrange(0, len(questions))].format()
                 return jsonify({
                     'success': True,
-                    # 'question': next_question
-
-                    'question': {
-                        "answer": next_question.answer,
-                        "category": next_question.category,
-                        "difficulty": next_question.difficulty,
-                        "id": next_question.id,
-                        "question": next_question.question
-                    },
-                    'previous_questions': previous_questions
-                    
+                    'question': next_question
                 })
-
-        except :
+            else:
+                return jsonify({
+                    'success': True,
+                    'question': None
+                })
+        except:
+            abort(404)
+       
             abort(404)
 
     """
